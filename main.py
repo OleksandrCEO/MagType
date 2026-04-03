@@ -34,17 +34,16 @@ class ClipboardController:
 
 
 class TrayIconManager:
-    """Native KDE Tray Manager supporting SVG with correct import scoping."""
+    """Native KDE Tray Manager with Ctrl+C support via QTimer."""
 
     def __init__(self):
-        # Робимо імпорти доступними для всього класу через self
         from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
         from PyQt6.QtGui import QIcon
-
-        self.QIcon = QIcon  # Фікс NameError
-
+        from PyQt6.QtCore import QTimer  # Додаємо таймер
         import sys
         import os
+
+        self.QIcon = QIcon
 
         if not QApplication.instance():
             self.app = QApplication(sys.argv)
@@ -52,10 +51,18 @@ class TrayIconManager:
             self.app = QApplication.instance()
 
         self.app.setQuitOnLastWindowClosed(False)
+
+        # --- ХАК ДЛЯ CTRL+C ---
+        # Порожній таймер дозволяє Python перевіряти системні сигнали (SIGINT)
+        # без цього Qt повністю блокує обробку Ctrl+C
+        self.timer = QTimer()
+        self.timer.start(500)
+        self.timer.timeout.connect(lambda: None)
+        # ----------------------
+
         self.icons_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
         os.makedirs(self.icons_dir, exist_ok=True)
 
-        # Ініціалізуємо іконки
         self.icons = {
             "idle": self._get_svg_icon("idle.svg", "#888888"),
             "listening": self._get_svg_icon("listening.svg", "#ff4444"),
@@ -65,7 +72,7 @@ class TrayIconManager:
         self.tray = QSystemTrayIcon(self.icons["idle"])
 
         self.menu = QMenu()
-        self.menu.addAction("Вимкнути MagType").triggered.connect(lambda: os._exit(0))
+        self.menu.addAction("Вимкнути MagType").triggered.connect(self.stop_all)
         self.tray.setContextMenu(self.menu)
 
         self.tray.show()
@@ -73,7 +80,6 @@ class TrayIconManager:
     def _get_svg_icon(self, filename: str, color: str):
         import os
         file_path = os.path.join(self.icons_dir, filename)
-
         if not os.path.exists(file_path):
             svg_content = f"""<?xml version="1.0" encoding="UTF-8"?>
             <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
@@ -81,8 +87,6 @@ class TrayIconManager:
             </svg>"""
             with open(file_path, "w") as f:
                 f.write(svg_content)
-
-        # Використовуємо self.QIcon, який ми зберегли в __init__
         return self.QIcon(file_path)
 
     def set_state_idle(self):
@@ -97,8 +101,14 @@ class TrayIconManager:
         if hasattr(self, 'tray'):
             self.tray.setIcon(self.icons["transcribing"])
 
+    def stop_all(self):
+        print("\n[+] Закриття через меню...")
+        import os
+        if os.path.exists(SOCKET_PATH):
+            os.remove(SOCKET_PATH)
+        os._exit(0)
+
     def run(self):
-        # Запуск циклу подій Qt (Event Loop)
         self.app.exec()
 
 
