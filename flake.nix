@@ -13,7 +13,7 @@
         config.allowUnfree = true;
       };
 
-      # Всі бібліотеки, які ми вивели досвідним шляхом
+      # Essential libraries for CUDA, Qt6, and UI rendering
       runtimeLibs = with pkgs; [
         stdenv.cc.cc.lib
         zlib
@@ -23,20 +23,20 @@
         fontconfig
         freetype
         wayland
-        # Qt6 модулі
+        # Qt6 modules
         qt6.qtbase
         qt6.qtsvg
         qt6.qtwayland
-        # Audio
+        # Audio processing
         portaudio
         libsndfile
-        # CUDA
+        # NVIDIA CUDA stack
         cudaPackages.cudatoolkit
         cudaPackages.cudnn
         cudaPackages.libcublas
       ];
 
-      # Формуємо Python з усіма потрібними пакунками з Nixpkgs
+      # Python environment with required ML and UI packages
       pythonEnv = pkgs.python3.withPackages (ps: with ps; [
         pyqt6
         numpy
@@ -45,9 +45,16 @@
         faster-whisper
       ]);
 
+      # Application dependencies available in PATH
+      binPath = with pkgs; [
+        wl-clipboard
+        ydotool
+        libnotify
+        ffmpeg
+      ];
+
     in
     {
-      # 1. СЕКЦІЯ ПАКУНКА (для встановлення в систему)
       packages.${system}.default = pkgs.stdenv.mkDerivation {
         pname = "magtype";
         version = "1.0.0";
@@ -56,40 +63,36 @@
         nativeBuildInputs = [ pkgs.makeWrapper ];
 
         installPhase = ''
-          mkdir -p $out/bin $out/share/magtype
+          mkdir -p $out/bin $out/share/magtype $out/share/icons/magtype
 
-          # Копіюємо скрипт та іконки в share
+          # Deploy source code and assets
           cp main.py $out/share/magtype/
-          cp -r icons $out/share/magtype/ || mkdir -p $out/share/magtype/icons
+          cp -r icons/* $out/share/icons/magtype/ || true
 
-          # Створюємо "обгортку" (wrapper), яка замінює прямий виклик python.
-          # Вона автоматично встановлює всі змінні оточення при запуску.
+          # Create a wrapper to handle environment variables and library paths
           makeWrapper ${pythonEnv}/bin/python $out/bin/magtype \
             --add-flags "$out/share/magtype/main.py" \
             --prefix LD_LIBRARY_PATH : "${pkgs.lib.makeLibraryPath runtimeLibs}:/run/opengl-driver/lib" \
-            --set QT_QPA_PLATFORM wayland \
-            --set QT_PLUGIN_PATH "${pkgs.qt6.qtbase}/${pkgs.qt6.qtbase.qtPluginPrefix}:${pkgs.qt6.qtsvg}/${pkgs.qt6.qtbase.qtPluginPrefix}" \
-            --prefix PATH : "${pkgs.lib.makeBinPath [ pkgs.wl-clipboard pkgs.ydotool pkgs.libnotify pkgs.ffmpeg ]}"
+            --set QT_QPA_PLATFORM "wayland;xcb" \
+            --set QT_PLUGIN_PATH "${pkgs.qt6.qtbase}/${pkgs.qt6.qtbase.qtPluginPrefix}" \
+            --set NIXOS_OZONE_WL "1" \
+            --prefix PATH : "${pkgs.lib.makeBinPath binPath}" \
+            --set MAGTYPE_ICONS_PATH "$out/share/icons/magtype"
         '';
       };
 
-      # 2. СЕКЦІЯ ДЛЯ РОЗРОБКИ (лишаємо як була)
       devShells.${system}.default = pkgs.mkShell {
         buildInputs = [
           pythonEnv
-          pkgs.portaudio
-          pkgs.wl-clipboard
-          pkgs.ydotool
-          pkgs.libnotify
-          pkgs.ffmpeg
-        ];
+        ] ++ binPath;
 
+        # Ensure CUDA and OpenGL libraries are visible during development
         LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath runtimeLibs}:/run/opengl-driver/lib";
 
         shellHook = ''
-          export QT_PLUGIN_PATH="${pkgs.qt6.qtbase}/${pkgs.qt6.qtbase.qtPluginPrefix}:${pkgs.qt6.qtsvg}/${pkgs.qt6.qtbase.qtPluginPrefix}"
           export QT_QPA_PLATFORM=wayland
-          echo "🎙️ MagType CUDA Development Environment Loaded!"
+          export MAGTYPE_ICONS_PATH="./icons"
+          echo "🎙️ MagType (CUDA) dev environment loaded"
         '';
       };
     };
