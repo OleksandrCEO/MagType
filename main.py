@@ -34,49 +34,72 @@ class ClipboardController:
 
 
 class TrayIconManager:
-    """Manages the system tray icon using lazy-loaded PIL and pystray."""
+    """Native KDE Tray Manager supporting SVG with correct import scoping."""
 
     def __init__(self):
-        import pystray
-        from PIL import Image, ImageDraw
+        # Робимо імпорти доступними для всього класу через self
+        from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
+        from PyQt6.QtGui import QIcon
 
-        self.pystray = pystray
-        self.Image = Image
-        self.ImageDraw = ImageDraw
-        self.icon = None
-        self._create_icon()
+        self.QIcon = QIcon  # Фікс NameError
 
-    def _generate_image(self, color: str):
-        """Generates a simple circle icon of the specified color."""
-        width = 64
-        height = 64
-        image = self.Image.new('RGBA', (width, height), (0, 0, 0, 0))
-        dc = self.ImageDraw.Draw(image)
-        # Draw a colored circle with standard padding
-        dc.ellipse((8, 8, 56, 56), fill=color)
-        return image
+        import sys
+        import os
 
-    def _create_icon(self):
-        self.icon = self.pystray.Icon("MagType")
-        self.set_state_idle()
+        if not QApplication.instance():
+            self.app = QApplication(sys.argv)
+        else:
+            self.app = QApplication.instance()
+
+        self.app.setQuitOnLastWindowClosed(False)
+        self.icons_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "icons")
+        os.makedirs(self.icons_dir, exist_ok=True)
+
+        # Ініціалізуємо іконки
+        self.icons = {
+            "idle": self._get_svg_icon("idle.svg", "#888888"),
+            "listening": self._get_svg_icon("listening.svg", "#ff4444"),
+            "transcribing": self._get_svg_icon("transcribing.svg", "#44ff44")
+        }
+
+        self.tray = QSystemTrayIcon(self.icons["idle"])
+
+        self.menu = QMenu()
+        self.menu.addAction("Вимкнути MagType").triggered.connect(lambda: os._exit(0))
+        self.tray.setContextMenu(self.menu)
+
+        self.tray.show()
+
+    def _get_svg_icon(self, filename: str, color: str):
+        import os
+        file_path = os.path.join(self.icons_dir, filename)
+
+        if not os.path.exists(file_path):
+            svg_content = f"""<?xml version="1.0" encoding="UTF-8"?>
+            <svg width="64" height="64" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="32" cy="32" r="24" fill="{color}" />
+            </svg>"""
+            with open(file_path, "w") as f:
+                f.write(svg_content)
+
+        # Використовуємо self.QIcon, який ми зберегли в __init__
+        return self.QIcon(file_path)
 
     def set_state_idle(self):
-        """Gray icon: daemon is running and ready."""
-        if self.icon:
-            self.icon.icon = self._generate_image("gray")
+        if hasattr(self, 'tray'):
+            self.tray.setIcon(self.icons["idle"])
 
     def set_state_listening(self):
-        """Red icon: currently recording audio."""
-        if self.icon:
-            self.icon.icon = self._generate_image("red")
+        if hasattr(self, 'tray'):
+            self.tray.setIcon(self.icons["listening"])
 
     def set_state_transcribing(self):
-        """Green icon: processing audio with Whisper."""
-        if self.icon:
-            self.icon.icon = self._generate_image("green")
+        if hasattr(self, 'tray'):
+            self.tray.setIcon(self.icons["transcribing"])
 
     def run(self):
-        self.icon.run()
+        # Запуск циклу подій Qt (Event Loop)
+        self.app.exec()
 
 
 class AudioRecorder:
