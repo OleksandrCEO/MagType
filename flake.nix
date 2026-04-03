@@ -1,5 +1,5 @@
 {
-  description = "MagType - Local AI Dictation Environment (CUDA)";
+ description = "MagType - Local AI Dictation Environment (CUDA)";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
@@ -10,10 +10,14 @@
       system = "x86_64-linux";
       pkgs = import nixpkgs {
         inherit system;
-        config.allowUnfree = true;
+        config = {
+          allowUnfree = true;
+          # This global flag tells Nix to build/fetch packages with CUDA support
+          cudaSupport = true;
+        };
       };
 
-      # Essential libraries for CUDA, Qt6, and UI rendering
+      # Essential runtime libraries
       runtimeLibs = with pkgs; [
         stdenv.cc.cc.lib
         zlib
@@ -23,20 +27,20 @@
         fontconfig
         freetype
         wayland
-        # Qt6 modules
         qt6.qtbase
         qt6.qtsvg
         qt6.qtwayland
-        # Audio processing
         portaudio
         libsndfile
-        # NVIDIA CUDA stack
+        # Specific CUDA packages required at runtime
         cudaPackages.cudatoolkit
         cudaPackages.cudnn
         cudaPackages.libcublas
       ];
 
-      # Python environment with required ML and UI packages
+      # Python environment.
+      # Since we set cudaSupport = true above, ps.faster-whisper
+      # will depend on the CUDA-enabled version of ctranslate2.
       pythonEnv = pkgs.python3.withPackages (ps: with ps; [
         pyqt6
         numpy
@@ -45,7 +49,6 @@
         faster-whisper
       ]);
 
-      # Application dependencies available in PATH
       binPath = with pkgs; [
         wl-clipboard
         ydotool
@@ -95,5 +98,13 @@
           echo "🎙️ MagType (CUDA) dev environment loaded"
         '';
       };
+
+      nixosModules.default = { config, lib, pkgs, ... }: {
+        options.services.magtype.enable = lib.mkEnableOption "MagType AI Dictation";
+        config = lib.mkIf config.services.magtype.enable {
+          environment.systemPackages = [ self.packages.${pkgs.system}.default ];
+        };
+      };
+
     };
 }
