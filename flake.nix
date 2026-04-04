@@ -1,5 +1,5 @@
 {
- description = "MagType - Local AI Dictation Environment (CUDA)";
+  description = "MagType - Local AI Dictation Environment (CUDA)";
 
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
@@ -13,7 +13,7 @@
         config = {
           allowUnfree = true;
           # This global flag tells Nix to build/fetch packages with CUDA support
-          cudaSupport = true;
+          # cudaSupport = true;
         };
       };
 
@@ -38,9 +38,7 @@
         cudaPackages.libcublas
       ];
 
-      # Python environment.
-      # Since we set cudaSupport = true above, ps.faster-whisper
-      # will depend on the CUDA-enabled version of ctranslate2.
+      # Python environment
       pythonEnv = pkgs.python3.withPackages (ps: with ps; [
         pyqt6
         numpy
@@ -91,13 +89,12 @@
           pythonEnv
         ] ++ binPath;
 
-        # Ensure CUDA and OpenGL libraries are visible during development
         LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath runtimeLibs}:/run/opengl-driver/lib";
 
         shellHook = ''
           export QT_QPA_PLATFORM=wayland
           export MAGTYPE_ICONS_PATH="./icons"
-          echo "🎙️ MagType (CUDA) dev environment loaded"
+          echo "🎙️ MagType dev environment loaded"
         '';
       };
 
