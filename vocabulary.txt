@@ -1,7 +1,11 @@
-MAGWER
+MAGWER, MagWer
 Олександр, Мойсеюк
-NixOS, Wayland
+NixOS, CachyOS, Ubuntu, Mint, Arch, Linux, Wayland, KDE, macOS, Windows, Linux
 Python, PyCharm, FastAPI, Flask, PostgreSQL
-React, JS
-AI, n8n, Make, MakeAI, OpenClaw
+React, Solid, JS, JavaScript, TypeScript
+AI, n8n, Make, MakeAI, OpenClaw, Whisper
 ChatGPT, Gemini, Claude, Claude Code
+Telegram, Telegram Stars, WhatsApp, Discord, Signal
+Facebook, Instagram, Twitter, TikTok, YouTube
+Google, Drive, Docs, Sheets
+ID, username, password, email, phone
