@@ -229,7 +229,7 @@ Categories=Utility;Accessibility;
 
 ## macOS
 
-> **Important**: macOS requires code modifications for clipboard and keyboard simulation.
+MagType automatically detects macOS and uses native tools (`pbcopy`, `osascript`).
 
 ### 1. Install Homebrew Dependencies
 
@@ -247,45 +247,14 @@ brew install python portaudio ffmpeg
 pip3 install faster-whisper sounddevice soundfile numpy pyqt6
 ```
 
-### 3. Code Modifications
+### 3. Clone and Run
 
-Create a modified `ClipboardController` for macOS:
+```bash
+git clone https://github.com/OleksandrCEO/MagType
+cd MagType
 
-```python
-import platform
-import subprocess
-
-class ClipboardController:
-    """Cross-platform clipboard controller."""
-
-    @staticmethod
-    def paste_text(text: str):
-        if not text:
-            return
-
-        system = platform.system()
-
-        try:
-            if system == "Darwin":  # macOS
-                # Copy to clipboard
-                subprocess.run(["pbcopy"], input=text.encode(), check=True)
-                # Simulate Cmd+V
-                subprocess.run([
-                    "osascript", "-e",
-                    'tell application "System Events" to keystroke "v" using command down'
-                ], check=True)
-
-            elif system == "Linux":
-                # Check if Wayland or X11
-                if os.environ.get("WAYLAND_DISPLAY"):
-                    subprocess.run(["wl-copy", text], check=True)
-                    subprocess.run(["ydotool", "key", "29:1", "47:1", "47:0", "29:0"], check=True)
-                else:
-                    subprocess.run(["xclip", "-selection", "clipboard"], input=text.encode(), check=True)
-                    subprocess.run(["xdotool", "key", "ctrl+v"], check=True)
-
-        except Exception as e:
-            print(f"Clipboard operation failed: {e}")
+# Run (CPU mode — Mac typically doesn't have CUDA)
+python3 main.py --daemon --device cpu
 ```
 
 ### 4. Grant Accessibility Permissions
@@ -298,27 +267,7 @@ macOS requires explicit permissions for keyboard simulation:
 4. Add **Terminal** (or your terminal app) to the list
 5. If using a Python app, you may need to add the Python binary
 
-### 5. Socket Path for macOS
-
-Unix sockets work on macOS, but the path should be in a user-accessible location:
-
-```python
-import platform
-
-if platform.system() == "Darwin":
-    SOCKET_PATH = os.path.expanduser("~/.magtype.sock")
-else:
-    SOCKET_PATH = "/tmp/magtype.sock"
-```
-
-### 6. Run
-
-```bash
-cd magtype
-python3 main.py --daemon --device cpu  # Mac typically doesn't have CUDA
-```
-
-### 7. Hotkey with Automator
+### 5. Hotkey with Automator
 
 1. Open **Automator** → New Document → **Quick Action**
 2. Set "Workflow receives" to **no input**

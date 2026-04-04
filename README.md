@@ -106,14 +106,12 @@ sudo apt install ydotool  # Ubuntu 23.04+
 pip3 install --user faster-whisper sounddevice soundfile numpy
 
 # Clone and run
-git clone https://github.com/yourusername/magtype
-cd magtype
+git clone https://github.com/OleksandrCEO/MagType
+cd MagType
 python3 main.py --daemon
 ```
 
 ### macOS
-
-> **Note**: macOS support requires code modifications (see Platform Adaptation section below).
 
 ```bash
 # Install Homebrew dependencies
@@ -123,11 +121,14 @@ brew install python portaudio ffmpeg
 pip3 install faster-whisper sounddevice soundfile numpy pyqt6
 
 # Clone repository
-git clone https://github.com/yourusername/magtype
-cd magtype
+git clone https://github.com/OleksandrCEO/MagType
+cd MagType
+
+# Run (CPU mode, macOS typically doesn't have CUDA)
+python3 main.py --daemon --device cpu
 ```
 
-macOS requires different clipboard/keyboard tools — see adaptation guide below.
+**Note**: Grant accessibility permissions for keyboard simulation (see Cross-Platform Support section).
 
 ## Usage
 
@@ -198,37 +199,51 @@ This improves transcription accuracy for technical terms.
 | medium | ~5GB | Moderate | High |
 | large-v3 | ~10GB | Slow | Best |
 
-## Platform Adaptation Guide
+## Project Structure
 
-### X11 Linux (non-Wayland)
-
-Replace clipboard tools in `ClipboardController`:
-
-```python
-# Instead of wl-copy
-subprocess.run(["xclip", "-selection", "clipboard"], input=text.encode())
-
-# Instead of ydotool
-subprocess.run(["xdotool", "key", "ctrl+v"])
+```
+magtype/
+├── main.py              # Entry point and daemon logic
+├── core/
+│   ├── __init__.py
+│   ├── clipboard.py     # Cross-platform clipboard controller
+│   └── icons.py         # Cross-platform icon management
+├── icons/
+│   ├── idle.svg
+│   ├── listening.svg
+│   └── transcribing.svg
+├── docs/
+│   └── INSTALL.md       # Detailed installation guides
+└── flake.nix            # NixOS flake
 ```
 
-### macOS
+## Cross-Platform Support
 
-```python
-# Clipboard
-subprocess.run(["pbcopy"], input=text.encode())
+MagType automatically detects your platform and uses appropriate tools:
 
-# Key simulation (requires accessibility permissions)
-subprocess.run(["osascript", "-e",
-    'tell application "System Events" to keystroke "v" using command down'])
+| Platform | Clipboard | Key Simulation |
+|----------|-----------|----------------|
+| Linux (Wayland) | wl-copy | ydotool |
+| Linux (X11) | xclip | xdotool |
+| macOS | pbcopy | osascript |
+
+### X11 Linux
+
+Install X11 tools instead of Wayland ones:
+```bash
+# Arch/CachyOS
+sudo pacman -S xclip xdotool
+
+# Ubuntu/Debian
+sudo apt install xclip xdotool
 ```
 
-### Windows
+### macOS Permissions
 
-Windows requires significant changes:
-- Replace Unix socket with named pipes or TCP
-- Use `pyperclip` for clipboard
-- Use `pyautogui` for key simulation
+macOS requires accessibility permissions for keyboard simulation:
+1. Open **System Preferences** → **Security & Privacy** → **Privacy**
+2. Select **Accessibility**
+3. Add Terminal (or Python) to the allowed list
 
 ## Troubleshooting
 

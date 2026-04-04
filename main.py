@@ -2,34 +2,17 @@ import os
 import sys
 import socket
 import threading
-import subprocess
 import argparse
 import tempfile
 import signal
 from pathlib import Path
 
+from core.clipboard import ClipboardController
+from core.icons import IconManager, get_socket_path
+
 # --- Constants ---
-SOCKET_PATH = "/tmp/magtype.sock"
+SOCKET_PATH = get_socket_path()
 AUDIO_SAMPLE_RATE = 16000
-
-
-class ClipboardController:
-    """Handles Wayland clipboard operations and virtual key injection."""
-
-    @staticmethod
-    def paste_text(text: str):
-        if not text:
-            return
-
-        try:
-            subprocess.run(["wl-copy", text], check=True)
-            try:
-                # Trigger Ctrl+V using ydotool
-                subprocess.run(["ydotool", "key", "29:1", "47:1", "47:0", "29:0"], check=True)
-            except Exception:
-                pass
-        except Exception as e:
-            print(f"Clipboard operation failed: {e}")
 
 
 class TrayIconManager:
@@ -49,14 +32,14 @@ class TrayIconManager:
         self.timer.start(500)
         self.timer.timeout.connect(lambda: None)
 
-        # Icon path resolution (Nix-friendly)
-        env_icons = os.environ.get("MAGTYPE_ICONS_PATH")
-        self.icons_dir = env_icons if env_icons and os.path.exists(env_icons) else str(Path(__file__).parent / "icons")
+        # Cross-platform icon management
+        self.icon_manager = IconManager()
+        icon_paths = self.icon_manager.get_all_icons()
 
         self.icons = {
-            "idle": QIcon(os.path.join(self.icons_dir, "idle.svg")),
-            "listening": QIcon(os.path.join(self.icons_dir, "listening.svg")),
-            "transcribing": QIcon(os.path.join(self.icons_dir, "transcribing.svg"))
+            "idle": QIcon(icon_paths["idle"]),
+            "listening": QIcon(icon_paths["listening"]),
+            "transcribing": QIcon(icon_paths["transcribing"])
         }
 
         self.tray = QSystemTrayIcon(self.icons["idle"])
