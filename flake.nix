@@ -17,8 +17,10 @@
         };
         overlays = [
           (final: prev: {
-            # Enable CUDA support only for ctranslate2 and its dependencies
-            ctranslate2 = prev.ctranslate2.override { cudaSupport = true; };
+            ctranslate2 = prev.ctranslate2.override {
+              withCUDA = true;
+              withCuDNN = true;
+            };
           })
         ];
       };
