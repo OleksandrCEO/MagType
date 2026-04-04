@@ -76,6 +76,7 @@
 
           # Deploy source code and assets
           cp main.py $out/share/magtype/
+          cp -r core $out/share/magtype/
           if [ -d "icons" ]; then
             cp -r icons/* $out/share/icons/magtype/
           fi

@@ -54,7 +54,8 @@ class TrayIconManager:
         languages = [("Auto detect", None), ("Ukrainian", "uk"), ("Russian", "ru"), ("English", "en")]
 
         for label, code in languages:
-            action = QAction(label, self.lang_menu, checkable=True)
+            action = QAction(label, self.lang_menu)
+            action.setCheckable(True)
             action.setData(code)
             if self.config.lang == code:
                 action.setChecked(True)
