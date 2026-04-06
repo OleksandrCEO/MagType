@@ -13,6 +13,7 @@ from core.icons import IconManager, get_socket_path
 # --- Constants ---
 SOCKET_PATH = get_socket_path()
 AUDIO_SAMPLE_RATE = 16000
+MODEL_BASE_DIR = "/var/lib/magtype/models/"
 
 
 class TrayIconManager:
@@ -148,8 +149,17 @@ class MagTypeDaemon:
         self.vocabulary = self._load_vocabulary()
 
         print(f"Initializing Whisper ({self.config.model}) on {self.config.device}...")
+        full_model_path = os.path.join(MODEL_BASE_DIR, self.config.model)
+
+        if os.path.exists(full_model_path):
+            actual_model = full_model_path
+            print(f"Initializing local Whisper ({actual_model}) on {self.config.device}...")
+        else:
+            actual_model = self.config.model
+            print(f"Downloading/Initializing Whisper ({actual_model}) from HF on {self.config.device}...")
+
         self.model = WhisperModel(
-            self.config.model,
+            actual_model,
             device=self.config.device,
             compute_type="float16" if self.config.device == "cuda" else "int8"
         )
