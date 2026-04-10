@@ -11,12 +11,21 @@ from core.clipboard import ClipboardController
 from core.icons import IconManager, get_socket_path
 
 # --- Constants ---
-SOCKET_PATH = get_socket_path()
 AUDIO_SAMPLE_RATE = 16000
 
 SHARED_MODEL_DIR = "/var/lib/magtype/models"
 USER_MODEL_DIR = os.path.expanduser("~/.cache/magtype/models")
 
+# Get XDG_RUNTIME_DIR provided by the OS (e.g., /run/user/1000)
+# Fallback to /tmp with UID if the variable is missing for some reason
+runtime_dir = os.environ.get("XDG_RUNTIME_DIR", f"/tmp/magtype-run-{os.getuid()}")
+
+# Create an isolated subdirectory for our app's runtime files
+socket_dir = Path(runtime_dir) / "magtype"
+socket_dir.mkdir(parents=True, exist_ok=True)
+
+# Final socket path (e.g., /run/user/1000/magtype/daemon.sock)
+SOCKET_PATH = str(socket_dir / "daemon.sock")
 
 class TrayIconManager:
     """Manages the system tray icon and language selection menu."""
