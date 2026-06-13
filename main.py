@@ -39,6 +39,12 @@ class TrayIconManager:
         self.app = QApplication.instance() or QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)
 
+        # Qt sets LC_ALL from the system locale (e.g. uk_UA.UTF-8 -> decimal comma),
+        # which breaks C libraries that parse numbers locale-aware (PyAV/ffmpeg).
+        # Force numeric locale back to C, leaving text/messages untouched.
+        import locale
+        locale.setlocale(locale.LC_NUMERIC, "C")
+
         # Wake up Python interpreter to handle SIGINT
         self.timer = QTimer()
         self.timer.start(500)
@@ -138,10 +144,8 @@ class AudioRecorder:
             self.stream.close()
         if not self.audio_data: return None
 
-        # Передаємо аудіо у faster-whisper як float32-масив 16 кГц напряму.
-        # Це обходить декодування через PyAV/ffmpeg, чий ресемплер ламається
-        # на локалях з комою як десятковим роздільником (uk_UA.UTF-8),
-        # яку активує Qt через setlocale(LC_ALL, "").
+        # Feed faster-whisper a raw 16kHz float32 array, skipping the PyAV/ffmpeg
+        # decode path whose resampler breaks under a decimal-comma locale.
         return self.np.concatenate(self.audio_data, axis=0).flatten()
 
 
