@@ -2,7 +2,7 @@
   description = "MagType - Local AI Dictation Environment (CUDA)";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
   };
 
   outputs = { self, nixpkgs }:
@@ -66,7 +66,7 @@
     {
       packages.${system}.default = pkgs.stdenv.mkDerivation {
         pname = "magtype";
-        version = "1.0.0";
+        version = "1.1.0";
         src = ./.;
 
         nativeBuildInputs = [ pkgs.makeWrapper ];
@@ -88,6 +88,7 @@
             --set QT_QPA_PLATFORM "wayland;xcb" \
             --set QT_PLUGIN_PATH "${pkgs.qt6.qtbase}/${pkgs.qt6.qtbase.qtPluginPrefix}" \
             --set NIXOS_OZONE_WL "1" \
+            --set PYTHONUNBUFFERED "1" \
             --prefix PATH : "${pkgs.lib.makeBinPath binPath}" \
             --set MAGTYPE_ICONS_PATH "$out/share/icons/magtype"
         '';

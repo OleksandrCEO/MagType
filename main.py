@@ -3,12 +3,12 @@ import sys
 import socket
 import threading
 import argparse
-import tempfile
 import signal
+import traceback
 from pathlib import Path
 
 from core.clipboard import ClipboardController
-from core.icons import IconManager, get_socket_path
+from core.icons import IconManager
 
 # --- Constants ---
 AUDIO_SAMPLE_RATE = 16000
@@ -131,18 +131,18 @@ class AudioRecorder:
         self.stream = self.sd.InputStream(samplerate=self.sample_rate, channels=1, callback=self._callback)
         self.stream.start()
 
-    def stop(self) -> str:
+    def stop(self):
         self.is_recording = False
         if self.stream:
             self.stream.stop()
             self.stream.close()
-        if not self.audio_data: return ""
+        if not self.audio_data: return None
 
-        import soundfile as sf
-        recording = self.np.concatenate(self.audio_data, axis=0)
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-        sf.write(temp_file.name, recording, self.sample_rate)
-        return temp_file.name
+        # Передаємо аудіо у faster-whisper як float32-масив 16 кГц напряму.
+        # Це обходить декодування через PyAV/ffmpeg, чий ресемплер ламається
+        # на локалях з комою як десятковим роздільником (uk_UA.UTF-8),
+        # яку активує Qt через setlocale(LC_ALL, "").
+        return self.np.concatenate(self.audio_data, axis=0).flatten()
 
 
 class MagTypeDaemon:
@@ -188,17 +188,17 @@ class MagTypeDaemon:
         else:
             self.is_recording_state = False
             self.tray.set_state_transcribing()
-            audio_path = self.recorder.stop()
-            if audio_path:
-                threading.Thread(target=self._transcribe, args=(audio_path,), daemon=True).start()
+            audio = self.recorder.stop()
+            if audio is not None and audio.size:
+                threading.Thread(target=self._transcribe, args=(audio,), daemon=True).start()
             else:
                 self.tray.set_state_idle()
 
-    def _transcribe(self, audio_path: str):
+    def _transcribe(self, audio):
         try:
             # language=None triggers auto-detection in faster-whisper
             segments, info = self.model.transcribe(
-                audio_path,
+                audio,
                 beam_size=5,
                 language=self.config.lang,
                 initial_prompt=self.vocabulary or None
@@ -212,8 +212,8 @@ class MagTypeDaemon:
                 self.clipboard.paste_text(text + " ")
         except Exception as e:
             print(f"Error: {e}")
+            traceback.print_exc()
         finally:
-            if os.path.exists(audio_path): os.remove(audio_path)
             self.vocabulary = self._load_vocabulary()
             self.tray.set_state_idle()
 
