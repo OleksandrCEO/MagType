@@ -104,15 +104,3 @@ class IconManager:
     def get_all_icons(self) -> dict[str, str]:
         """Get paths for all icons."""
         return {name: self.get_icon_path(name) for name in self.ICON_NAMES}
-
-
-def get_socket_path() -> str:
-    """Get platform-appropriate socket path."""
-    system = platform.system()
-
-    if system == "Darwin":
-        # macOS: User-specific socket in home directory
-        return str(Path.home() / ".magtype.sock")
-    else:
-        # Linux: Standard /tmp location
-        return "/tmp/magtype.sock"

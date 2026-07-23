@@ -33,11 +33,19 @@ class TrayIconManager:
     def __init__(self, config: argparse.Namespace):
         from PyQt6.QtWidgets import QApplication, QSystemTrayIcon, QMenu
         from PyQt6.QtGui import QIcon, QAction, QActionGroup
-        from PyQt6.QtCore import QTimer
+        from PyQt6.QtCore import QTimer, QObject, pyqtSignal
 
         self.config = config
         self.app = QApplication.instance() or QApplication(sys.argv)
         self.app.setQuitOnLastWindowClosed(False)
+
+        # Worker threads (socket server, transcription) must not touch Qt widgets directly.
+        # Route every state change through a queued signal so setIcon() runs in the GUI thread.
+        class _StateBridge(QObject):
+            state_changed = pyqtSignal(str)
+
+        self._bridge = _StateBridge()
+        self._bridge.state_changed.connect(self._apply_state)
 
         # Qt sets LC_ALL from the system locale (e.g. uk_UA.UTF-8 -> decimal comma),
         # which breaks C libraries that parse numbers locale-aware (PyAV/ffmpeg).
@@ -97,14 +105,18 @@ class TrayIconManager:
         status = new_lang if new_lang else "Auto-detect"
         print(f"[UI] Language switched to: {status}")
 
+    def _apply_state(self, state: str):
+        """Runs in the GUI thread via the queued state_changed signal."""
+        self.tray.setIcon(self.icons[state])
+
     def set_state_idle(self):
-        self.tray.setIcon(self.icons["idle"])
+        self._bridge.state_changed.emit("idle")
 
     def set_state_listening(self):
-        self.tray.setIcon(self.icons["listening"])
+        self._bridge.state_changed.emit("listening")
 
     def set_state_transcribing(self):
-        self.tray.setIcon(self.icons["transcribing"])
+        self._bridge.state_changed.emit("transcribing")
 
     def stop_all(self):
         if os.path.exists(SOCKET_PATH):
@@ -232,8 +244,8 @@ class MagTypeDaemon:
                 if conn.recv(1024).decode('utf-8') == "TOGGLE":
                     self.handle_toggle()
                 conn.close()
-            except:
-                pass
+            except Exception as e:
+                print(f"[socket] Failed to handle connection: {e}")
 
 
 if __name__ == "__main__":
@@ -255,10 +267,15 @@ if __name__ == "__main__":
         tray.run()
     elif args.toggle:
         if not os.path.exists(SOCKET_PATH):
+            print(f"[toggle] Daemon socket not found at {SOCKET_PATH}. Is the daemon running?")
             sys.exit(1)
-        client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
-        client.connect(SOCKET_PATH)
-        client.sendall(b"TOGGLE")
-        client.close()
+        try:
+            client = socket.socket(socket.AF_UNIX, socket.SOCK_STREAM)
+            client.connect(SOCKET_PATH)
+            client.sendall(b"TOGGLE")
+            client.close()
+        except OSError as e:
+            print(f"[toggle] Failed to reach daemon: {e}")
+            sys.exit(1)
     else:
         parser.print_help()
