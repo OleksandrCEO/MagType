@@ -189,7 +189,8 @@ class MagTypeDaemon:
         self.model = WhisperModel(
             self.config.model,
             device=self.config.device,
-            compute_type="float16" if self.config.device == "cuda" else "int8",
+            # int8 weights + fp16 compute: ~half the VRAM of float16, near-identical accuracy
+            compute_type="int8_float16" if self.config.device == "cuda" else "int8",
             download_root=download_dir
         )
 
@@ -254,7 +255,7 @@ if __name__ == "__main__":
     parser.add_argument("--toggle", action="store_true")
     # Default is None for Auto-detection
     parser.add_argument("--lang", type=str, default=None, help="Force language (uk, en). Default: Auto")
-    parser.add_argument("--model", type=str, default="large-v3")
+    parser.add_argument("--model", type=str, default="large-v3-turbo")
     parser.add_argument("--device", type=str, default="cuda")
 
     args = parser.parse_args()

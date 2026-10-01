@@ -197,6 +197,7 @@ This improves transcription accuracy for technical terms.
 | base | ~1GB | Fast | Basic |
 | small | ~2GB | Good | Good |
 | medium | ~5GB | Moderate | High |
+| large-v3-turbo (default) | ~2GB | Fast | High |
 | large-v3 | ~10GB | Slow | Best |
 
 ## Project Structure
